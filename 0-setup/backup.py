@@ -103,4 +103,3 @@ def sns_some_error():
     Message='Some error occured',
     Subject='DynamoDB Backup Error' 
   )
-

@@ -332,3 +332,100 @@ Resources:
       SourceArn: !Sub 'arn:aws:s3:::${triggerBucketName}'
       SourceAccount: !Ref AWS::AccountId
 ```
+
+
+
+
+AWSLambdaBasicExecutionRole
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+AWSLambdaInvocation-DynamoDB
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "lambda:InvokeFunction"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:DescribeStream",
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator",
+                "dynamodb:ListStreams"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+policy for lambda function to update ddb and sns
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "dynamodb:CreateBackup"
+            ],
+            "Resource": "arn:aws:dynamodb:us-east-1:444532715273:table/ddb-table-444532715273",
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "dynamodb:ListBackups",
+                "dynamodb:DeleteBackup"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:us-east-1:444532715273:table/ddb-table-444532715273/backup/*"
+            ],
+            "Effect": "Allow"
+        },
+        {
+            "Action": [
+                "sns:Publish"
+            ],
+            "Resource": "arn:aws:sns:us-east-1:444532715273:backup-status-notification",
+            "Effect": "Allow"
+        }
+    ]
+}
+```
+
+trust relationship document
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "lambda.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+```

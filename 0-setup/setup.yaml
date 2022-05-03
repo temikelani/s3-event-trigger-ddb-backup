@@ -1,0 +1,218 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create the   s3 buckets needed to set up the environment
+
+# --------------------------------------- Modify Template WIth New Parameters
+Parameters:
+  # backuplambdaFileName:
+  #   Description: The name of the Lambda zip file in s3 - that backups the ddb table
+  #   Type: String
+  #   Default: backup.zip
+  
+  # csvlambdaFileName:
+  #   Description: The name of the Lambda zip file in s3 - that loads up the csv the ddb table
+  #   Type: String
+  #   Default: csv-ddb.zip
+
+  # triggerBucketName:
+  #   Description: Name of the Bucket triggering the Lambda Function
+  #   Type: String
+  #   Default: !Sub trigger-bucket-${AWS::AccountId}
+
+  email:
+    Description: Email to send sns notfications to
+    Type: String
+    Default: temikelani@icloud.com
+# --------------------------------------- Modify Template WIth New Resources
+
+Resources:
+  # Trigger A Lambda function upon 's3:ObjectCreated:*' event
+  # Load csv files to dynamo table on any create event
+  # Backup Dyanamo Table on any create event
+  triggerBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub trigger-bucket-${AWS::AccountId}
+# --------------------------------------- Modify Template WIth New Properties
+      # NotificationConfiguration:
+      #   LambdaConfigurations: 
+      #     - Event: s3:ObjectCreated:*
+      #       Function: !GetAtt ddbBackupFunction.Arn
+      #     - Event: s3:ObjectCreated:*
+      #       Function: !GetAtt csvToDdbLambdaFunction.Arn
+      #       Filter:
+      #         S3Key:
+      #           Rules:
+      #           - Name: suffix
+      #             Value: .csv     
+# --------------------------------------- Modify Template WIth New Resources
+
+  lambdaBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub lambda-bucket-${AWS::AccountId}
+  
+  dynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: !Sub ddt-table-${AWS::AccountId}   
+      AttributeDefinitions: 
+        - AttributeName: order_id
+          AttributeType: S
+        - AttributeName: item_id
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: order_id
+          KeyType: HASH
+        - AttributeName: item_id
+          KeyType: RANGE
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+  
+  CsvToDdbLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - s3.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - 'arn:aws:iam::aws:policy/AWSLambdaInvocation-DynamoDB'
+        - 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'
+      Policies:
+        - PolicyName: policyname
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: !GetAtt dynamoDbTable.Arn
+                Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:BatchWriteItem'
+
+  s3DdbBackUpLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - 'arn:aws:iam::aws:policy/AWSLambdaInvocation-DynamoDB'
+      Policies:
+        - PolicyName: s3DdbBackUpPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: !GetAtt dynamoDbTable.Arn
+                Action:
+                  - dynamodb:CreateBackup
+              - Effect: Allow
+                Resource: 
+                  - Fn::Join:
+                    - ''
+                    - - !GetAtt dynamoDbTable.Arn
+                      - '/backup/*'
+                Action:
+                  - 'dynamodb:ListBackups'
+                  - 'dynamodb:DeleteBackup'
+        - PolicyName: snsPublish
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: !Ref  snsTopic
+                Action:
+                  - sns:Publish
+
+# --------------------------------------- Modify Template WIth New Resources
+
+  snsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: backup-status-notification
+      Subscription: 
+        - Endpoint: !Ref email
+          Protocol: email
+
+  # ddbBackupFunction:
+  #   Type: AWS::Lambda::Function
+  #   Properties:
+  #     FunctionName: !Sub ddb-backup-${AWS::AccountId}   
+  #     Code:
+  #       S3Bucket: !Ref lambdaBucket
+  #       S3Key: !Ref backuplambdaFileName
+  #     Handler: backup.lambda_handler
+  #     MemorySize: 128
+  #     Role: !GetAtt s3DdbBackUpLambdaRole.Arn
+  #     Runtime: python3.9
+  #     Timeout: 300
+  #     Environment:
+  #       Variables:
+  #         ddbTableName: !Ref dynamoDbTable
+  #         snsArn: !Ref .....................
+  
+  # csvToDdbLambdaFunction:
+  #   Type: 'AWS::Lambda::Function'
+  #   Properties:
+  #     FunctionName: !Sub csv-ddb-${AWS::AccountId}   
+  #     Code:
+  #       S3Bucket: !Ref lambdaBucket
+  #       S3Key: !Ref csvlambdaFileName
+  #     Handler: csv-ddb.lambda_handler
+  #     MemorySize: 128
+  #     Role: !GetAtt CsvToDdbLambdaRole.Arn
+  #     Runtime: python3.9
+  #     Timeout: 300
+  #     Environment:
+  #       Variables:
+  #         bucket: !Ref triggerBucket
+  #         key: 'order_data.csv'
+  #         table: !Ref dynamoDbTable
+
+  
+  # s3CsvTriggerLambdaPermission:
+  #   Type: AWS::Lambda::Permission
+  #   Properties:
+  #     Action: 'lambda:InvokeFunction'
+  #     FunctionName: !Ref csvToDdbLambdaFunction
+  #     Principal: s3.amazonaws.com
+  #     SourceArn: !Sub 'arn:aws:s3:::${triggerBucketName}'
+  #     SourceAccount: !Ref AWS::AccountId
+  
+  # s3BackupTriggerLambdaPermission:
+  #   Type: AWS::Lambda::Permission
+  #   Properties:
+  #     Action: 'lambda:InvokeFunction'
+  #     FunctionName: !Ref ddbBackupFunction
+  #     Principal: s3.amazonaws.com
+  #     SourceArn: !Sub 'arn:aws:s3:::${triggerBucketName}'
+  #     SourceAccount: !Ref AWS::AccountId
+
+# --------------------------------------- Modify Template WIth New Resources
+
+Outputs:
+  triggerBucketName:
+    Value: !Ref triggerBucket
+  lambdaBucketName:
+    Value: !Ref lambdaBucket
+  dynamoDbTableName:
+    Value: !Ref dynamoDbTable
+  dynamoDbTableArn:
+    Value: !GetAtt dynamoDbTable.Arn

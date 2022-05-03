@@ -1,4 +1,4 @@
-## Automating DDB Backups Vis AWS Backup Using Lambda Functions <a id ='top'></a>
+## Automating DDB Backups Vis S3 Event Trigggers Using Lambda Functions <a id ='top'></a>
 
 <br>
 <br>

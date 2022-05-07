@@ -1,0 +1,348 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Update previous stack with new resources and modify s3 bucket notifications to point to new backup function.
+
+Parameters:
+  email:
+    Description: Email to send sns notfications to
+    Type: String
+    Default: temikelani@icloud.com # Enter your email here
+
+Resources:
+  # ----- Resources to Modify
+
+  # Bucket will trigger ddb table backup
+  triggerBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub trigger-bucket-${AWS::AccountId}
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ddbBackupFunction.Arn
+
+  # ----- New Resources
+
+  # SNS Topic to send email notification
+  snsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: backup-status-notification
+      Subscription:
+        - Endpoint: !Ref email
+          Protocol: email
+
+  # lambda permission for s3 notification
+  s3BackupTriggerLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref ddbBackupFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::trigger-bucket-${AWS::AccountId}"
+      SourceAccount: !Ref AWS::AccountId
+
+  # Lamda Function to Backup DyanamoDB table
+  ddbBackupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ddb-backup-${AWS::AccountId}
+      Code:
+        ZipFile: |
+          import datetime
+          import boto3
+          import os
+
+          #max no of backups to maintain
+          MAX_BACKUPS = 3
+
+          # environmental variables
+          tableName = os.environ['ddbTableName']
+          snsArn = os.environ['snsArn']
+
+          # boto client
+          dynamo = boto3.client('dynamodb')
+          sns = boto3.client('sns')
+
+          def lambda_handler(event, context):
+            try:
+              backup_status = create_backup(tableName)
+              if backup_status == 'pass':
+                delete_status = delete_old_backups(tableName)
+                if delete_status == 'pass':
+                  sns_success_message()
+                else: 
+                  sns.sns_some_error()
+              else:
+                sns_fail_message()
+            except:
+              sns_fail_message()
+
+          # create backup function
+          def create_backup(tableName):
+            try:
+              print("Backing up table:", tableName)
+              backup_name = tableName + '-' + datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+
+              response = dynamo.create_backup(
+                  TableName=tableName, BackupName=backup_name)
+
+              print(response)
+              print('Backup has been taken successfully for table:', tableName)
+              return 'pass'
+            except:
+              print("Error backing up table.")
+              return 'fail'
+
+          # delete backup function
+          def delete_old_backups(tableName):
+            try:
+              print("Deleting old backups for table:", tableName)
+
+              backups = dynamo.list_backups(TableName=tableName)
+
+              backup_count = len(backups['BackupSummaries'])
+              print('Total backup count:', backup_count)
+
+              if backup_count <= MAX_BACKUPS:
+                  print("No excess backups")
+                  return 'pass'
+
+              # if backups are greater and MAX_BACKUPS sort backups by creation date
+              sorted_list = sorted(backups['BackupSummaries'],key=lambda k: k['BackupCreationDateTime'])
+              print(sorted_list)
+              old_backups = sorted_list[:MAX_BACKUPS]
+              print(old_backups)
+
+              for backup in old_backups:
+                  arn = backup['BackupArn']
+                  print("Backup ARN to delete: " + arn)
+                  deleted_arn = dynamo.delete_backup(BackupArn=arn)
+                  status = deleted_arn['BackupDescription']['BackupDetails']['BackupStatus']
+                  print("Status:", status)
+
+              return 'pass'
+            
+            except:
+              print('Error deleting Backups')
+              return 'fail'
+
+          def sns_success_message():
+            response = sns.publish(
+              TargetArn = snsArn,
+              Message='DynamoDB Backup Successfull',
+              Subject='DynamoDB Backup Success' 
+            )
+            
+          def sns_fail_message():
+            response = sns.publish(
+              TargetArn = snsArn,
+              Message='DynamoDB Backup Failed',
+              Subject='DynamoDB Backup Fail' 
+            )
+
+          def sns_some_error():
+            response = sns.publish(
+              TargetArn = snsArn,
+              Message='Some error occured',
+              Subject='DynamoDB Backup Error' 
+            )
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt s3DdbBackUpLambdaRole.Arn
+      Runtime: python3.9
+      Timeout: 300
+      Environment:
+        Variables:
+          ddbTableName: !Ref dynamoDbTable
+          snsArn: !Ref snsTopic
+
+  # Role for lambda function to backup dynamodb table
+  s3DdbBackUpLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        # - 'arn:aws:iam::aws:policy/AWSLambdaInvocation-DynamoDB'
+      Policies:
+        - PolicyName: s3DdbBackUpPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: !GetAtt dynamoDbTable.Arn
+                Action:
+                  - dynamodb:CreateBackup
+              - Effect: Allow
+                Resource:
+                  - Fn::Join:
+                      - ""
+                      - - !GetAtt dynamoDbTable.Arn
+                        - "/backup/*"
+                Action:
+                  - "dynamodb:ListBackups"
+                  - "dynamodb:DeleteBackup"
+              - Effect: Allow
+                Resource: !Ref snsTopic
+                Action:
+                  - sns:Publish
+
+  # ----- Resources to leave unchanged
+
+  # S3 Notification permission to trigger lambda function
+  s3CsvTriggerLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref csvToDdbLambdaFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::trigger-bucket-${AWS::AccountId}"
+      SourceAccount: !Ref AWS::AccountId
+
+  # DyanmoDB Table to hold contents of order_data.csv
+  dynamoDbTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ddt-table-${AWS::AccountId}
+      AttributeDefinitions:
+        - AttributeName: order_id
+          AttributeType: S
+        - AttributeName: item_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: order_id
+          KeyType: HASH
+        - AttributeName: item_id
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  # Role to allow lambda function populate dynamoDbTable
+  CsvToDdbLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - s3.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSLambdaInvocation-DynamoDB"
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+      Policies:
+        - PolicyName: policyname
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: !GetAtt dynamoDbTable.Arn
+                Action:
+                  - "dynamodb:PutItem"
+                  - "dynamodb:BatchWriteItem"
+
+  # Function to populate table
+  csvToDdbLambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Sub csv-ddb-${AWS::AccountId}
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          import csv
+          import codecs
+          import sys
+
+          s3 = boto3.resource('s3')
+          dynamodb = boto3.resource('dynamodb')
+
+          bucket = os.environ['bucket']
+          key = os.environ['key']
+          tableName = os.environ['table']
+
+          def lambda_handler(event, context):
+            #get() does not store in memory
+            try:
+                obj = s3.Object(bucket, key).get()['Body']
+            except:
+                print("S3 Object could not be opened. Check environment variable. ")
+            try:
+                table = dynamodb.Table(tableName)
+            except:
+                print("Error loading DynamoDB table. Check if table was created correctly and environment variable.")
+
+            batch_size = 100
+            batch = []
+
+            #DictReader is a generator; not stored in memory
+            for row in csv.DictReader(codecs.getreader('utf-8')(obj)):
+              if len(batch) >= batch_size:
+                  write_to_dynamo(batch)
+                  batch.clear()
+
+              batch.append(row)
+
+            if batch:
+              write_to_dynamo(batch)
+
+            return {
+              'statusCode': 200,
+              'body': json.dumps('Uploaded to DynamoDB Table')
+            }
+
+          def write_to_dynamo(rows):
+            try:
+              table = dynamodb.Table(tableName)
+            except:
+              print("Error loading DynamoDB table. Check if table was created correctly and environment variable.")
+
+            try:
+              with table.batch_writer() as batch:
+                  for i in range(len(rows)):
+                    batch.put_item(
+                        Item=rows[i]
+                    )
+            except:
+              print("Error executing batch_writer")
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Role: !GetAtt CsvToDdbLambdaRole.Arn
+      Runtime: python3.9
+      Timeout: 300
+      Environment:
+        Variables:
+          bucket: !Sub trigger-bucket-${AWS::AccountId}
+          key: "order_data.csv"
+          table: !Ref dynamoDbTable
+
+# ----- Outputs
+
+Outputs:
+  triggerBucketName:
+    Value: !Ref triggerBucket
+  dynamoDbTableName:
+    Value: !Ref dynamoDbTable
+  dynamoDbTableArn:
+    Value: !GetAtt dynamoDbTable.Arn
+  ddbBackupFunctionArn:
+    Value: !GetAtt ddbBackupFunction.Arn
+  snsTopicArn:
+    Value: !Ref snsTopic

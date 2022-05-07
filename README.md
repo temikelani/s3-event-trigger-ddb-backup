@@ -5,6 +5,7 @@
 <br>
 
 # Contents
+
 - [Objective](#obj)
 - [Steps](#steps)
 - [Via Cloud Formation](#0)
@@ -14,15 +15,19 @@
 - [Resources](#res)
 - [go to top](#top)
 
-
 <br>
 <br>
 
 # Objective <a id='obj'></a> ([go to top](#top))
 
-- Automate - using a lambda script - the backup of a ddb table to an aws backup vault. make the automation triggered be triggered by a update/change to the ddb table
+- Scenario
+  - You have a dynamodb table and an s3 bucket. And for some reason you want the dynamodb table to be backed up whenever you upload a file to s3. You also want an email notification send when the backup is complete
 
-- Upload a file to s3, back it up to ddb, and trigger a backup to aws backup
+Objectives
+
+- Automate - using a lambda script - the backup of a ddb table
+- Upload a file to s3, and trigger a backup to aws backup
+- Send a notification
 
 <br>
 <br>
@@ -30,12 +35,19 @@
 
 # Steps <a id='steps'></a> ([go to top](#top))
 
-## Setup
+- Setup Your environment
 
-## Solution
+  - Deploy the [Cloud Formation Template](0-setup/setup-env-cfn.yaml)
+  - Upload the [order_data.csv](./0-setup/order_data.csv) to the s3 bucket created
 
-
-## Test the Function
+- create an `SNS Topic` and and `email subscription`
+- Create a `Lambda function`to create a dynamodb table backup
+- Add an s3 `s3:ObjectCreated:*` notification trigger to that function with the required lambda permission
+- Create a role for the lambda function to
+  - create, list and delete DynamoDB backups
+  - Publish to SNS topics
+  - with the right trust relationship document to allow lambda assume the role
+- Upload a file to s3 and test your function
 
 <br>
 <br>
@@ -44,6 +56,9 @@
 # Via CLoud Formation <a id='0'></a> ([go to top](#top))
 
 <details>
+<summary> Update the existing stack </summary>
+Update the existing stack with the cloud formation template [solution-cfn.yaml](./1-via-cloud-formation/solution-cfn.yaml) 
+  - Upload the [order_data.csv](./0-setup/order_data.csv) to the s3 bucket created
 
 </details>
 
@@ -54,9 +69,9 @@
 # Via Terraform <a id='1'></a> ([go to top](#top))
 
 <details>
+<summary> Coming Soon </summary>
 
 </details>
-
 
 <br>
 <br>
@@ -65,6 +80,7 @@
 # Via CLI/Bash Script<a id='2'></a> ([go to top](#top))
 
 <details>
+<summary> Coming Soon </summary>
 
 </details>
 
@@ -74,12 +90,13 @@
 
 # Via Console <a id='3'></a> ([go to top](#top))
 
+<details>
+<summary> Coming Soon </summary>
 
-
-
-
+</details>
 
 # Resources <a id='res'></a> ([go to top](#top))
+
 - [Set up scheduled backups for Amazon DynamoDB using AWS Backup](https://aws.amazon.com/blogs/database/set-up-scheduled-backups-for-amazon-dynamodb-using-aws-backup/)
 - [Set up scheduled backups using AWS Backup](https://github.com/aws-samples/setup-scheduled-backups-using-aws-backup)
 
@@ -117,10 +134,6 @@
 
 - https://aws.amazon.com/premiumsupport/knowledge-center/lambda-s3-event-configuration-error/
 
-
 <br>
 <br>
 <br>
-
-
-

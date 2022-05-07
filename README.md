@@ -58,7 +58,8 @@ Objectives
 Update the existing stack with the cloud formation template [solution-cfn.yaml](./1-via-cloud-formation/solution-cfn.yaml) the upload file to test the backup process
 
 <details>
-<summary> Template break down and cli instructions coming soon </summary>
+<summary> > Click to Expand </summary>
+Coming Soon
 </details>
 
 <br>
@@ -69,7 +70,7 @@ Update the existing stack with the cloud formation template [solution-cfn.yaml](
 
 <details>
 <summary> Coming Soon </summary>
-
+Coming Soon
 </details>
 
 <br>
@@ -79,7 +80,9 @@ Update the existing stack with the cloud formation template [solution-cfn.yaml](
 # Via CLI/Bash Script<a id='2'></a> ([go to top](#top))
 
 <details>
-<summary> Coming Soon </summary>
+<summary> Click To Expand </summary>
+
+Coming Soon
 
 </details>
 

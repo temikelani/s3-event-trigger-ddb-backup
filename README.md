@@ -55,11 +55,10 @@ Objectives
 
 # Via CLoud Formation <a id='0'></a> ([go to top](#top))
 
-<details>
-<summary> Update the existing stack </summary>
-Update the existing stack with the cloud formation template [solution-cfn.yaml](./1-via-cloud-formation/solution-cfn.yaml) 
-  - Upload the [order_data.csv](./0-setup/order_data.csv) to the s3 bucket created
+Update the existing stack with the cloud formation template [solution-cfn.yaml](./1-via-cloud-formation/solution-cfn.yaml) the upload file to test the backup process
 
+<details>
+<summary> Template break down and cli instructions coming soon </summary>
 </details>
 
 <br>

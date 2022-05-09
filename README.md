@@ -1,7 +1,10 @@
 # Automating DDB Backups Vis S3 Event Trigggers Using Lambda Functions <a id ='top'></a>
 
+<br><br>
+
 ## Summary
-This project ...... coming soon. 
+This repo was created as a results of an AWS consultation request from Upwork. 
+The project provides multiple method for ...... coming soon. 
 
 
 <br>

@@ -1,4 +1,8 @@
-## Automating DDB Backups Vis S3 Event Trigggers Using Lambda Functions <a id ='top'></a>
+# Automating DDB Backups Vis S3 Event Trigggers Using Lambda Functions <a id ='top'></a>
+
+## Summary
+This project ...... coming soon. 
+
 
 <br>
 <br>

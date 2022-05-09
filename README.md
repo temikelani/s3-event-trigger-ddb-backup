@@ -4,7 +4,8 @@
 
 ## Summary
 This repo was created as a results of an AWS consultation request from Upwork. 
-The project provides multiple method for ...... coming soon. 
+
+- The project provides multiple method for ...... coming soon. 
 
 
 <br>

@@ -28,10 +28,10 @@ This repo was created as a results of an AWS consultation request from Upwork.
 
 # Objective <a id='obj'></a> ([go to top](#top))
 
-- Scenario
-  - You have a dynamodb table and an s3 bucket. And for some reason you want the dynamodb table to be backed up whenever you upload a file to s3. You also want an email notification send when the backup is complete
+## Scenario
+  - You have a dynamodb table and an s3 bucket. And for some reason you want the dynamodb table to be backed up whenever you upload a file to s3. You also want an email notification sent when the backup is complete
 
-Objectives
+## Objective
 
 - Automate - using a lambda script - the backup of a ddb table
 - Upload a file to s3, and trigger a backup to aws backup
@@ -63,7 +63,7 @@ Objectives
 
 # Via CLoud Formation <a id='0'></a> ([go to top](#top))
 
-Update the existing stack with the cloud formation template [solution-cfn.yaml](./1-via-cloud-formation/solution-cfn.yaml) the upload file to test the backup process
+Update the existing stack with the cloud formation template [solution-cfn.yaml](./1-via-cloud-formation/solution-cfn.yaml) then upload file to S3 to test the backup process
 
 <details>
 <summary> > Click to Expand </summary>

@@ -1,4 +1,4 @@
-# Automating DynamoDB Backups Vis S3 Event Trigggers Using Lambda Functions <a id ='top'></a>
+# Automating DynamoDB Backups Via S3 Event Trigggers Using Lambda Functions <a id ='top'></a>
 
 <br><br>
 

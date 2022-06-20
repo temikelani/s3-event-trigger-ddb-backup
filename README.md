@@ -38,7 +38,6 @@
 - Setup Your environment
   - Deploy the [Cloud Formation Template](0-setup/setup-env-cfn.yaml)
   - Upload the [order_data.csv](./0-setup/order_data.csv) to the s3 bucket created
-
 - create an `SNS Topic` and `email subscription`
 - Create a `Lambda function` to create a dynamodb table backup
 - Add an s3 `s3:ObjectCreated:*` notification trigger to that function with the required lambda permission

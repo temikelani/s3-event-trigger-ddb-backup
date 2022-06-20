@@ -17,7 +17,6 @@
 - [Objective](#obj)
 - [Steps](#steps)
 - [Via Cloud Formation](#0)
-- [Via Terraform](#1)
 - [Resources](#res)
 - [go to top](#top)
 
@@ -25,8 +24,6 @@
 <br>
 
 # Objective <a id='obj'></a> ([go to top](#top))
-
-## Objective
 
 - Automate - using a lambda script - the backup of a ddb table
 - Upload a file to s3, and trigger a backup to aws backup
@@ -39,7 +36,6 @@
 # Steps <a id='steps'></a> ([go to top](#top))
 
 - Setup Your environment
-
   - Deploy the [Cloud Formation Template](0-setup/setup-env-cfn.yaml)
   - Upload the [order_data.csv](./0-setup/order_data.csv) to the s3 bucket created
 
